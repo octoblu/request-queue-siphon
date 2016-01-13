@@ -1,3 +1,4 @@
+_         = require 'lodash'
 commander = require 'commander'
 redis     = require 'redis'
 RedisNS   = require '@octoblu/redis-ns'
@@ -22,13 +23,15 @@ class Command
   run: =>
     @parseOptions()
 
-    inClient     = new RedisNS @inputNS, redis.createClient(@redisUri)
+    inClient     = _.bindAll new RedisNS(@inputNS, redis.createClient @redisUri)
     inJobManager = new JobManager client: inClient
 
-    outClient     = new RedisNS @outputNS, redis.createClient(@redisUri)
+    outClient     = _.bindAll new RedisNS(@outputNS, redis.createClient @redisUri)
     outJobManager = new JobManager client: outClient
 
-    siphon = new Siphon {inJobManager, outJobManager}
+    timeoutSeconds = 1
+
+    siphon = new Siphon {inClient, outClient, timeoutSeconds}
     siphon.do()
 
 command = new Command
