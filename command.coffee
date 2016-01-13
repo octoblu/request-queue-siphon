@@ -1,20 +1,23 @@
 _         = require 'lodash'
+async     = require 'async'
 commander = require 'commander'
 redis     = require 'redis'
 RedisNS   = require '@octoblu/redis-ns'
+Siphon    = require './src/siphon'
 
 class Command
   constructor: ->
 
   parseOptions: =>
     commander
-      .option '-i, --input-ns <namespace>', 'Namespace from which to siphon (env: SIPHON_INPUT_NS)'
+      .option '-i, --input-ns <namespace>',  'Namespace from which to siphon (env: SIPHON_INPUT_NS)'
       .option '-o, --output-ns <namespace>', 'Namespace to siphon in to (env: SIPHON_OUTPUT_NS)'
-      .option '-r, --rate <rate>', 'Rate at which to siphon work, defaults to x'
+      .option '-t, --timeout <seconds>', 'Timeout in seconds when waiting for jobs, default 30s (env: SIPHON_TIMEOUT)'
       .parse process.argv
 
-    @inputNS = commander.inputQueue ? process.env.SIPHON_INPUT_NS
-    @outputNS = commander.outputQueue ? process.env.SIPHON_OUTPUT_NS
+    @inputNS = commander.inputNs ? process.env.SIPHON_INPUT_NS
+    @outputNS = commander.outputNs ? process.env.SIPHON_OUTPUT_NS
+    @timeoutSeconds = parseInt(commander.timeout ? process.env.SIPHON_OUTPUT_NS || 30)
 
     unless @inputNS && @outputNS
       commander.outputHelp()
@@ -23,16 +26,15 @@ class Command
   run: =>
     @parseOptions()
 
-    inClient     = _.bindAll new RedisNS(@inputNS, redis.createClient @redisUri)
-    inJobManager = new JobManager client: inClient
+    inClient  = new RedisNS(@inputNS, redis.createClient @redisUri)
+    inClient  = _.bindAll inClient, _.functions(inClient)
+    outClient = new RedisNS(@outputNS, redis.createClient @redisUri)
+    outClient = _.bindAll outClient, _.functions(outClient)
 
-    outClient     = _.bindAll new RedisNS(@outputNS, redis.createClient @redisUri)
-    outJobManager = new JobManager client: outClient
-
-    timeoutSeconds = 1
-
-    siphon = new Siphon {inClient, outClient, timeoutSeconds}
-    siphon.do()
+    siphon = new Siphon {inClient, outClient, @timeoutSeconds}
+    async.forever siphon.do, (error) =>
+      console.error error.stack
+      console.error 'No longer accepting new work'
 
 command = new Command
 command.run()
