@@ -18,7 +18,7 @@ class Command
     @redisUri = process.env.SIPHON_REDIS_URI
     @inputNS = commander.inputNs ? process.env.SIPHON_INPUT_NS
     @outputNS = commander.outputNs ? process.env.SIPHON_OUTPUT_NS
-    @timeoutSeconds = parseInt(commander.timeout ? process.env.SIPHON_OUTPUT_NS || 30)
+    @timeoutSeconds = parseInt(commander.timeout ? process.env.SIPHON_TIMEOUT || 30)
 
     unless @inputNS && @outputNS
       commander.outputHelp()
