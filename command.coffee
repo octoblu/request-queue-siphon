@@ -32,10 +32,20 @@ class Command
     outClient = new RedisNS(@outputNS, redis.createClient @redisUri)
     outClient = _.bindAll outClient, _.functions(outClient)
 
-    siphon = new Siphon {inClient, outClient, @timeoutSeconds}
-    async.forever siphon.do, (error) =>
+    @siphon = new Siphon {inClient, outClient, @timeoutSeconds}
+    async.forever @singleRun, (error) =>
       console.error error.stack
       console.error 'No longer accepting new work'
+
+    process.on 'SIGTERM', =>
+      @exitNextIteration = true
+
+  singleRun: (callback) =>
+    @exitGracefully() if @exitNextIteration
+    @siphon.do callback
+
+  exitGracefully: =>
+    process.exit 0
 
 command = new Command
 command.run()
